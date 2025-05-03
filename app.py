@@ -446,7 +446,7 @@ elif page == "Exploratory Analysis":
             )
         else:
             demo_data = df.groupby(demographic_var)['Status Description'] \
-                         .apply(lambda x: (x == 'Completed').mean().reset_index()
+                         .apply(lambda x: (x == 'Completed').mean().reset_index())
             demo_data.columns = [demographic_var, 'Completion Rate']
             fig = px.bar(
                 demo_data, 
