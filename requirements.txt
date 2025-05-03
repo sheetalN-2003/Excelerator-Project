@@ -8,6 +8,6 @@ joblib
 openai
 streamlit-autorefresh
 streamlit-aggrid
-streamlit-extras>
+streamlit-extras
 imbalanced-learn
 python-dotenv
