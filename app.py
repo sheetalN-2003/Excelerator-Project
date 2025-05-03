@@ -147,6 +147,7 @@ def load_data():
                 df['Learner SignUp DateTime_year'].astype(str) + '-' +
                 df['Learner SignUp DateTime_month'].astype(str).str.zfill(2) + '-' +
                 df['Learner SignUp DateTime_day'].astype(str).str.zfill(2)
+            )
         except Exception as e:
             st.error(f"Error converting datetime columns: {str(e)}")
             df['Signup_DateTime'] = pd.to_datetime('today')  # Fallback
@@ -189,7 +190,7 @@ def generate_ai_insights(data, prompt):
         if not openai.api_key or openai.api_key == "your-api-key-here":
             return "⚠️ OpenAI API key not configured. Please set your API key to enable AI insights."
             
-        if not data or (isinstance(data, dict) and not data:
+        if not data or (isinstance(data, dict) and not data):
             return "⚠️ No data available for analysis"
             
         response = openai.ChatCompletion.create(
