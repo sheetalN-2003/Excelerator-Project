@@ -9,15 +9,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_curve, auc
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_curve, auc, roc_auc_score
 from sklearn.preprocessing import LabelEncoder
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
-from PIL import Image
 import openai
 import pytz
+import pyarrow as pa
 from dateutil.relativedelta import relativedelta
 
 # Set page config with professional dark theme
@@ -29,7 +29,10 @@ st.set_page_config(
 )
 
 # Initialize OpenAI (replace with your API key)
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+if 'OPENAI_API_KEY' in st.secrets:
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
+else:
+    openai.api_key = "your-api-key-here"  # Replace with your actual key
 
 # Custom CSS for professional dark theme
 st.markdown("""
@@ -113,48 +116,6 @@ st.markdown("""
     .stTabs [aria-selected="true"] {
         background-color: #5E81AC !important;
     }
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #2E3440;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #4C566A;
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #5E81AC;
-    }
-    
-    /* Status indicators */
-    .status-indicator {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 8px;
-    }
-    .status-online {
-        background-color: #A3BE8C;
-    }
-    .status-offline {
-        background-color: #BF616A;
-    }
-    
-    /* Real-time clock */
-    .real-time-clock {
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-        color: #81A1C1;
-        background-color: rgba(46, 52, 64, 0.5);
-        padding: 4px 8px;
-        border-radius: 4px;
-        display: inline-block;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -169,22 +130,32 @@ sns.set_style("darkgrid", {
     'ytick.color': 'white'
 })
 
-# Load data
+# Load data with proper type conversion
 @st.cache_data
 def load_data():
-    df = pd.read_csv('final_dataset.csv')
-    
-    # Create target variable for drop-off prediction
-    df['drop_off'] = df['Status Description'].apply(lambda x: 1 if x in ['Withdrawn', 'Rejected'] else 0)
-    
-    # Convert datetime columns
-    df['Signup_DateTime'] = pd.to_datetime(
-        df['Learner SignUp DateTime_year'].astype(str) + '-' +
-        df['Learner SignUp DateTime_month'].astype(str).str.zfill(2) + '-' +
-        df['Learner SignUp DateTime_day'].astype(str).str.zfill(2)
-    )
-    
-    return df
+    try:
+        df = pd.read_csv('final_dataset.csv')
+        
+        # Convert datetime columns
+        df['Signup_DateTime'] = pd.to_datetime(
+            df['Learner SignUp DateTime_year'].astype(str) + '-' +
+            df['Learner SignUp DateTime_month'].astype(str).str.zfill(2) + '-' +
+            df['Learner SignUp DateTime_day'].astype(str).str.zfill(2)
+        )
+        
+        # Create target variable
+        df['drop_off'] = df['Status Description'].apply(
+            lambda x: 1 if str(x) in ['Withdrawn', 'Rejected'] else 0
+        )
+        
+        # Convert object columns to string to avoid Arrow serialization issues
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].astype(str)
+            
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return pd.DataFrame()
 
 df = load_data()
 
@@ -192,24 +163,29 @@ df = load_data()
 def real_time_clock():
     tz = pytz.timezone('UTC')
     now = datetime.now(tz)
-    return st.sidebar.markdown(
+    st.sidebar.markdown(
         f"""
         <div style="display: flex; align-items: center; margin-bottom: 16px;">
-            <span class="status-indicator status-online"></span>
-            <span class="real-time-clock">{now.strftime('%Y-%m-%d %H:%M:%S')} UTC</span>
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; background-color: #A3BE8C;"></span>
+            <span style="font-family: 'Courier New', monospace; font-size: 14px; color: #81A1C1; background-color: rgba(46, 52, 64, 0.5); padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                {now.strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </span>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-# OpenAI insights generator
+# OpenAI insights generator with error handling
 def generate_ai_insights(data, prompt):
     try:
+        if not openai.api_key or openai.api_key == "your-api-key-here":
+            return "OpenAI API key not configured. Please set your API key to enable AI insights."
+            
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",  # Using 3.5 for cost efficiency
             messages=[
                 {"role": "system", "content": "You are a data science assistant that provides concise, professional insights about educational data."},
-                {"role": "user", "content": f"Analyze this data and provide 3 key insights: {data}. Focus on: {prompt}"}
+                {"role": "user", "content": f"Analyze this data and provide 3 key insights: {str(data)}. Focus on: {prompt}. Respond in markdown format with bullet points."}
             ],
             temperature=0.7,
             max_tokens=256
@@ -218,11 +194,15 @@ def generate_ai_insights(data, prompt):
     except Exception as e:
         return f"Could not generate insights: {str(e)}"
 
-# Sidebar
+# Sidebar with proper labels
 st.sidebar.title("Dashboard Controls")
 real_time_clock()
 st.sidebar.markdown("### Navigation")
-page = st.sidebar.radio("", ["Data Overview", "Exploratory Analysis", "Predictive Modeling", "AI Insights"])
+page = st.sidebar.radio(
+    "Select Page",
+    options=["Data Overview", "Exploratory Analysis", "Predictive Modeling", "AI Insights"],
+    label_visibility="visible"
+)
 
 # Main content
 st.title("🎓 AI-Powered Student Analytics Dashboard")
@@ -303,18 +283,30 @@ if page == "Data Overview":
         st.progress(completeness / 100, text=f"Data completeness: {completeness}%")
     
     st.subheader("Interactive Data Explorer")
-    with st.expander("Filter and Explore Data"):
+    with st.expander("Filter and Explore Data", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
-            min_age, max_age = st.slider("Age Range", 
-                                        min_value=int(df['Age'].min()), 
-                                        max_value=int(df['Age'].max()),
-                                        value=(18, 35))
+            min_age, max_age = st.slider(
+                "Age Range", 
+                min_value=int(df['Age'].min()), 
+                max_value=int(df['Age'].max()),
+                value=(18, 35),
+                label_visibility="visible"
+            )
         with col2:
-            countries = st.multiselect("Countries", df['Country'].unique(), default=df['Country'].unique()[:3])
+            countries = st.multiselect(
+                "Countries", 
+                df['Country'].unique(), 
+                default=df['Country'].unique()[:3],
+                label_visibility="visible"
+            )
         with col3:
-            statuses = st.multiselect("Statuses", df['Status Description'].unique(), 
-                                     default=df['Status Description'].unique()[:2])
+            statuses = st.multiselect(
+                "Statuses", 
+                df['Status Description'].unique(), 
+                default=df['Status Description'].unique()[:2],
+                label_visibility="visible"
+            )
         
         filtered_df = df[
             (df['Age'] >= min_age) & 
@@ -323,11 +315,12 @@ if page == "Data Overview":
             (df['Status Description'].isin(statuses))
         ]
         
-        st.dataframe(filtered_df.style.set_properties(**{
-            'background-color': '#2E3440',
-            'color': '#FAFAFA',
-            'border': '1px solid #4C566A'
-        }), height=300)
+        # Convert DataFrame to string types for display
+        display_df = filtered_df.copy()
+        for col in display_df.select_dtypes(include=['object']).columns:
+            display_df[col] = display_df[col].astype(str)
+        
+        st.dataframe(display_df, height=300)
 
 elif page == "Exploratory Analysis":
     st.header("🔍 Advanced Exploratory Analysis")
@@ -340,9 +333,12 @@ elif page == "Exploratory Analysis":
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
-            time_resolution = st.selectbox("Time Resolution", 
-                                         ["Daily", "Weekly", "Monthly", "Quarterly"],
-                                         index=2)
+            time_resolution = st.selectbox(
+                "Time Resolution", 
+                ["Daily", "Weekly", "Monthly", "Quarterly"],
+                index=2,
+                label_visibility="visible"
+            )
         with col2:
             show_forecast = st.checkbox("Show 3-Month Forecast", value=True)
         
@@ -418,11 +414,17 @@ elif page == "Exploratory Analysis":
         # Interactive demographic analysis
         col1, col2 = st.columns(2)
         with col1:
-            demographic_var = st.selectbox("Demographic Variable", 
-                                         ['Age', 'Gender', 'Country', 'Opportunity Category'])
+            demographic_var = st.selectbox(
+                "Demographic Variable", 
+                ['Age', 'Gender', 'Country', 'Opportunity Category'],
+                label_visibility="visible"
+            )
         with col2:
-            metric = st.selectbox("Metric", 
-                                ['Count', 'Drop-off Rate', 'Completion Rate'])
+            metric = st.selectbox(
+                "Metric", 
+                ['Count', 'Drop-off Rate', 'Completion Rate'],
+                label_visibility="visible"
+            )
         
         if metric == 'Count':
             demo_data = df[demographic_var].value_counts().reset_index()
@@ -462,27 +464,6 @@ elif page == "Exploratory Analysis":
             height=500
         )
         st.plotly_chart(fig, use_container_width=True)
-    
-    st.subheader("Advanced Correlation Analysis")
-    # Select numerical features for correlation
-    num_features = ['Age', 'Learner SignUp DateTime_month', 'drop_off']
-    if len(num_features) > 1:
-        corr_matrix = df[num_features].corr()
-        fig = px.imshow(
-            corr_matrix,
-            text_auto=True,
-            color_continuous_scale='viridis',
-            title='Feature Correlation Matrix'
-        )
-        fig.update_layout(
-            plot_bgcolor='#2E3440',
-            paper_bgcolor='#2E3440',
-            font=dict(color='white'),
-            height=500
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Not enough numerical features for correlation analysis")
 
 elif page == "Predictive Modeling":
     st.header("🤖 Advanced Predictive Modeling")
@@ -526,29 +507,53 @@ elif page == "Predictive Modeling":
     model_df, features, target = preprocess_data(df)
     
     # Interactive feature selection
-    with st.expander("Feature Selection and Engineering"):
+    with st.expander("Feature Selection and Engineering", expanded=False):
         selected_features = st.multiselect(
             "Select features for modeling",
             features,
-            default=features
+            default=features,
+            label_visibility="visible"
         )
     
     # Model selection and configuration
     st.subheader("Model Configuration")
     
-    model_type = st.selectbox("Select Algorithm", 
-                            ["Logistic Regression", "Decision Tree", "Random Forest", "Gradient Boosting"])
+    model_type = st.selectbox(
+        "Select Algorithm", 
+        ["Logistic Regression", "Decision Tree", "Random Forest", "Gradient Boosting"],
+        label_visibility="visible"
+    )
     
     col1, col2 = st.columns(2)
     with col1:
-        test_size = st.slider("Test Set Size (%)", 10, 40, 20)
-        cv_folds = st.slider("Cross-Validation Folds", 2, 10, 5)
+        test_size = st.slider(
+            "Test Set Size (%)", 
+            10, 40, 20,
+            label_visibility="visible"
+        )
+        cv_folds = st.slider(
+            "Cross-Validation Folds", 
+            2, 10, 5,
+            label_visibility="visible"
+        )
     with col2:
-        random_state = st.number_input("Random State", 0, 100, 42)
+        random_state = st.number_input(
+            "Random State", 
+            0, 100, 42,
+            label_visibility="visible"
+        )
         if model_type in ["Decision Tree", "Random Forest", "Gradient Boosting"]:
-            max_depth = st.slider("Max Depth", 1, 20, 5)
+            max_depth = st.slider(
+                "Max Depth", 
+                1, 20, 5,
+                label_visibility="visible"
+            )
         if model_type in ["Random Forest", "Gradient Boosting"]:
-            n_estimators = st.slider("Number of Trees", 10, 200, 100)
+            n_estimators = st.slider(
+                "Number of Trees", 
+                10, 200, 100,
+                label_visibility="visible"
+            )
     
     # Train/test split
     X = model_df[selected_features]
@@ -597,12 +602,7 @@ elif page == "Predictive Modeling":
                     st.metric("ROC AUC", f"{roc_auc_score(y_test, y_prob):.2%}")
                 
                 st.markdown("**Detailed Classification Report**")
-                st.table(pd.DataFrame(report).transpose().style.format("{:.2f}").background_gradient(
-                    cmap='viridis', axis=None).set_properties(**{
-                    'background-color': '#2E3440',
-                    'color': '#FAFAFA',
-                    'border': '1px solid #4C566A'
-                })
+                st.table(pd.DataFrame(report).transpose())
             
             with tab2:
                 fig, ax = plt.subplots()
@@ -650,14 +650,7 @@ elif page == "Predictive Modeling":
                     'Predicted': y_pred[:20],
                     'Probability': [f"{p:.1%}" for p in y_prob[:20]]
                 })
-                st.dataframe(sample_results.style.applymap(
-                    lambda x: 'color: #A3BE8C' if x == 0 else 'color: #BF616A', 
-                    subset=['Actual', 'Predicted']
-                ).set_properties(**{
-                    'background-color': '#2E3440',
-                    'color': '#FAFAFA',
-                    'border': '1px solid #4C566A'
-                }))
+                st.dataframe(sample_results)
             
             # Save model to session state
             st.session_state.model = model
@@ -669,35 +662,44 @@ elif page == "AI Insights":
     
     st.markdown("""
     ### Intelligent Analysis and Recommendations
-    Leverage OpenAI's advanced language models to generate actionable insights from your data.
+    Leverage AI to generate actionable insights from your data.
     """)
     
     # Data summary for AI
-    data_summary = {
-        "total_students": len(df),
-        "drop_off_rate": df['drop_off'].mean(),
-        "top_countries": df['Country'].value_counts().head(3).to_dict(),
-        "status_distribution": df['Status Description'].value_counts(normalize=True).to_dict(),
-        "age_stats": {
-            "mean": df['Age'].mean(),
-            "median": df['Age'].median(),
-            "min": df['Age'].min(),
-            "max": df['Age'].max()
+    if not df.empty:
+        data_summary = {
+            "total_students": len(df),
+            "drop_off_rate": df['drop_off'].mean(),
+            "top_countries": df['Country'].value_counts().head(3).to_dict(),
+            "status_distribution": df['Status Description'].value_counts(normalize=True).to_dict(),
+            "age_stats": {
+                "mean": df['Age'].mean(),
+                "median": df['Age'].median(),
+                "min": df['Age'].min(),
+                "max": df['Age'].max()
+            }
         }
-    }
+    else:
+        data_summary = {"error": "No data available"}
     
     st.subheader("Automated Data Analysis")
-    analysis_type = st.selectbox("Select Analysis Type", [
-        "General Overview",
-        "Drop-off Risk Factors",
-        "Retention Opportunities",
-        "Seasonal Patterns",
-        "Custom Analysis"
-    ])
+    analysis_type = st.selectbox(
+        "Select Analysis Type", [
+            "General Overview",
+            "Drop-off Risk Factors",
+            "Retention Opportunities",
+            "Seasonal Patterns",
+            "Custom Analysis"
+        ],
+        label_visibility="visible"
+    )
     
     custom_prompt = ""
     if analysis_type == "Custom Analysis":
-        custom_prompt = st.text_area("Enter your specific questions or focus areas")
+        custom_prompt = st.text_area(
+            "Enter your specific questions or focus areas",
+            label_visibility="visible"
+        )
     
     if st.button("Generate Insights", type="primary"):
         with st.spinner("Generating AI-powered insights..."):
@@ -725,15 +727,40 @@ elif page == "AI Insights":
         
         col1, col2 = st.columns(2)
         with col1:
-            age = st.slider("Student Age", 15, 70, 25)
-            gender = st.selectbox("Gender", df['Gender'].unique())
-            country = st.selectbox("Country", df['Country'].unique())
+            age = st.slider(
+                "Student Age", 
+                15, 70, 25,
+                label_visibility="visible"
+            )
+            gender = st.selectbox(
+                "Gender", 
+                df['Gender'].unique(),
+                label_visibility="visible"
+            )
+            country = st.selectbox(
+                "Country", 
+                df['Country'].unique(),
+                label_visibility="visible"
+            )
         with col2:
-            category = st.selectbox("Program Category", df['Opportunity Category'].unique())
-            signup_month = st.selectbox("Signup Month", range(1, 13), format_func=lambda x: datetime(2023, x, 1).strftime('%B'))
-            engagement_level = st.select_slider("Engagement Level", ["Low", "Medium", "High"])
+            category = st.selectbox(
+                "Program Category", 
+                df['Opportunity Category'].unique(),
+                label_visibility="visible"
+            )
+            signup_month = st.selectbox(
+                "Signup Month", 
+                range(1, 13), 
+                format_func=lambda x: datetime(2023, x, 1).strftime('%B'),
+                label_visibility="visible"
+            )
+            engagement_level = st.select_slider(
+                "Engagement Level", 
+                ["Low", "Medium", "High"],
+                label_visibility="visible"
+            )
         
-        if st.button("Calculate Drop-off Risk"):
+        if st.button("Calculate Drop-off Risk", type="primary"):
             # Create input dataframe
             input_data = pd.DataFrame({
                 'Age': [age],
@@ -812,17 +839,3 @@ with footer_col1:
 with footer_col2:
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     st.markdown(f"*Last updated: {last_updated}*")
-
-# JavaScript for real-time clock update
-st.markdown("""
-<script>
-function updateClock() {
-    const now = new Date();
-    const clockElement = document.querySelector('.real-time-clock');
-    if (clockElement) {
-        clockElement.textContent = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-    }
-}
-setInterval(updateClock, 1000);
-</script>
-""", unsafe_allow_html=True)
