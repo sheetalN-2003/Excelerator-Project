@@ -310,9 +310,8 @@ def generate_ai_insights(data, chart_type, x=None, y=None):
 # ==============================================
 # Enhanced Visualization Components
 # ==============================================
-
-    def plot_engagement_trends(df):
-    "Interactive engagement trends with AI insights"
+def plot_engagement_trends(df):
+    """Interactive engagement trends with AI insights"""
     if 'Signup_Date' not in df.columns:
         return None
     
@@ -343,6 +342,8 @@ def generate_ai_insights(data, chart_type, x=None, y=None):
                 marker_color='coral')
             ),
             row=2, col=1
+        )
+    
     # Update layout
     fig.update_layout(
         height=600,
