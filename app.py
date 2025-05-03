@@ -361,8 +361,6 @@ def plot_engagement_trends(df):
                 marker_color='coral')
             ),
             row=2, col=1
-        )
-    
     # Update layout
     fig.update_layout(
         height=600,
