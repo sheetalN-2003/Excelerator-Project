@@ -34,7 +34,7 @@ st.title("🚀 Student Retention Analytics Dashboard")
 # ==============================================
 # Data Loading & Preparation
 # ==============================================
-DATA_URL = ""
+DATA_URL = "https://raw.githubusercontent.com/sheetalN-2003/Excelerator-Project/refs/heads/main/final_dataset.csv"
 
 @st.cache_data
 def load_data():
