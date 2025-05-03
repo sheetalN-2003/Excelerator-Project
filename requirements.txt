@@ -1,39 +1,16 @@
-# Core Data Science Stack
 streamlit
 pandas
 numpy
 matplotlib
 seaborn
-scipy
-
-# Visualization
-plotly
-pydeck
-wordcloud
-
-# Geospatial
-geopandas
-shapely
-contextily
-
-# Machine Learning
 scikit-learn
 imbalanced-learn
-joblib
-statsmodels
-
-# Time Series Forecasting
+plotly
+wordcloud
+geopandas
+pydeck
 prophet
-pystan
-
-# Additional Utilities
-python-dateutil
-pytz
-tqdm
-
-# PDF Export (uncomment if implementing)
-# reportlab
-# pdfkit
-
-# Explainability (optional)
-# shap
+joblib
+streamlit-autorefresh
+streamlit-aggrid
+streamlit-extras
