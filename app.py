@@ -34,22 +34,46 @@ st.title("🚀 Student Retention Analytics Dashboard")
 # ==============================================
 # Data Loading & Preparation
 # ==============================================
-DATA_URL = "https://raw.githubusercontent.com/sheetalN-2003/Excelerator-Project/refs/heads/main/final_dataset.csv"
-
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
-    return pd.read_csv(DATA_URL)
+    try:
+        # Try multiple possible file locations
+        try_paths = [
+            "student_data.csv",           # Same directory
+            "./data/student_data.csv",    # In a data subfolder
+            "https://raw.githubusercontent.com/sheetalN-2003/Excelerator-Project/refs/heads/main/final_dataset.csv"  # From GitHub
+        ]
         
-        # Feature Engineering
-        df['Signup_Date'] = pd.to_datetime(df['Signup_Date'])
-        df['Last_Activity'] = pd.to_datetime(df['Last_Activity'])
+        for path in try_paths:
+            try:
+                df = pd.read_csv(path)
+                if not df.empty:
+                    st.success(f"Data loaded successfully from: {path}")
+                    return process_data(df)
+            except Exception as e:
+                st.warning(f"Failed to load from {path}: {str(e)}")
+                continue
+                
+        st.error("Could not load data from any attempted path")
+        return pd.DataFrame()
+        
+    except Exception as e:
+        st.error(f"Critical error loading data: {e}")
+        return pd.DataFrame()
+
+def process_data(df):
+    """Data processing and feature engineering"""
+    # Convert date columns
+    date_cols = [col for col in df.columns if 'date' in col.lower()]
+    for col in date_cols:
+        df[col] = pd.to_datetime(df[col])
+    
+    # Calculate features
+    if 'Last_Activity' in df.columns and 'Signup_Date' in df.columns:
         df['Days_Inactive'] = (pd.to_datetime('today') - df['Last_Activity']).dt.days
         df['Engagement_Score'] = df['Login_Count'] / (df['Days_Inactive'] + 1)
-        
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
+    
+    return df
 
 def prepare_retention_data(df):
     """Prepare data for retention prediction"""
