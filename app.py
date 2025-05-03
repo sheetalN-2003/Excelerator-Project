@@ -310,24 +310,6 @@ def generate_ai_insights(data, chart_type, x=None, y=None):
 # ==============================================
 # Enhanced Visualization Components
 # ==============================================
-def plot_engagement_trends(df):
-    """Interactive engagement trends with AI insights"""
-    if 'Signup_Date' not in df.columns:
-        return None
-    
-    fig = make_subplots(rows=2, cols=1, vertical_spacing=0.15)
-    
-    # Weekly signups
-    weekly_signups = df.set_index('Signup_Date').resample('W').size()
-    fig.add_trace(
-        go.Scatter(
-            x=weekly_signups.index,
-            y=weekly_signups.values,
-            name='Weekly Signups',
-            line=dict(color='royalblue')
-        ),
-        row=1, col=1
-    )
 
     def plot_engagement_trends(df):
     """Interactive engagement trends with AI insights"""
