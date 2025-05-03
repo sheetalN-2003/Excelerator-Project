@@ -312,7 +312,7 @@ def generate_ai_insights(data, chart_type, x=None, y=None):
 # ==============================================
 
     def plot_engagement_trends(df):
-    """Interactive engagement trends with AI insights"""
+    "Interactive engagement trends with AI insights"
     if 'Signup_Date' not in df.columns:
         return None
     
