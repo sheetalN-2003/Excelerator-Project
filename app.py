@@ -147,7 +147,6 @@ def load_data():
                 df['Learner SignUp DateTime_year'].astype(str) + '-' +
                 df['Learner SignUp DateTime_month'].astype(str).str.zfill(2) + '-' +
                 df['Learner SignUp DateTime_day'].astype(str).str.zfill(2)
-            )
         except Exception as e:
             st.error(f"Error converting datetime columns: {str(e)}")
             df['Signup_DateTime'] = pd.to_datetime('today')  # Fallback
@@ -951,7 +950,6 @@ try:
                             )
                             st.plotly_chart(fig, use_container_width=True)
                     except Exception as e:
-                        st.error(f"Error in scenario analysis: {
                         st.error(f"Error in scenario analysis: {str(e)}")
             else:
                 st.warning("Please train a model first in the Predictive Modeling section")
@@ -984,4 +982,4 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 </script>
-""", unsafe_allow_html=True)                       
+""", unsafe_allow_html=True)
