@@ -15,7 +15,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-# Set page config
+# Set page config with dark theme
 st.set_page_config(
     page_title="Student Drop-off Prediction Dashboard",
     page_icon="🎓",
@@ -23,46 +23,102 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for dark theme with high contrast
 st.markdown("""
 <style>
+    /* Main page background */
     .main {
-        background-color: #f8f9fa;
+        background-color: #0E1117;
+        color: #FAFAFA;
     }
+    
+    /* Sidebar background */
     .sidebar .sidebar-content {
-        background-color: #e9ecef;
+        background-color: #1A1D24;
+        color: #FAFAFA;
     }
-    .st-bb {
-        background-color: white;
+    
+    /* Text colors */
+    h1, h2, h3, h4, h5, h6, .stMarkdown, .stAlert, .stText, .stNumberInput label, 
+    .stSelectbox label, .stSlider label, .stRadio label, .stButton>button {
+        color: #FAFAFA !important;
     }
-    .st-at {
-        background-color: #e9ecef;
+    
+    /* Widget backgrounds */
+    .st-bb, .st-at, .st-ax, .stTextInput>div>div>input, .stNumberInput>div>div>input,
+    .stSelectbox>div>div>select, .stSlider>div>div>div>div, .stRadio>div>label {
+        background-color: #1A1D24 !important;
+        color: #FAFAFA !important;
     }
-    .st-ax {
-        background-color: #f8f9fa;
-    }
-    .css-18e3th9 {
-        padding: 2rem 1rem 10rem;
-    }
-    .css-1d391kg {
-        padding: 2rem 1rem 1rem;
-    }
+    
+    /* Plot containers */
     .plot-container {
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         padding: 15px;
-        background-color: white;
+        background-color: #1A1D24;
         margin-bottom: 20px;
+        border: 1px solid #333;
     }
+    
+    /* Model cards */
     .model-card {
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         padding: 15px;
-        background-color: white;
+        background-color: #1A1D24;
         margin-bottom: 20px;
+        border: 1px solid #333;
+    }
+    
+    /* Tables */
+    .dataframe {
+        background-color: #1A1D24 !important;
+        color: #FAFAFA !important;
+    }
+    
+    /* Matplotlib figure background */
+    .stPlot {
+        background-color: #1A1D24 !important;
+    }
+    
+    /* Custom colors for alerts */
+    .stAlert {
+        border-left: 4px solid;
+    }
+    .stAlert.success {
+        border-color: #2ecc71;
+        background-color: rgba(46, 204, 113, 0.1);
+    }
+    .stAlert.warning {
+        border-color: #f39c12;
+        background-color: rgba(243, 156, 18, 0.1);
+    }
+    .stAlert.error {
+        border-color: #e74c3c;
+        background-color: rgba(231, 76, 60, 0.1);
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #1A1D24;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #777;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Set matplotlib style for dark theme
+plt.style.use('dark_background')
+sns.set_style("darkgrid", {'axes.facecolor': '#1A1D24'})
 
 # Load data
 @st.cache_data
@@ -70,7 +126,6 @@ def load_data():
     df = pd.read_csv('final_dataset.csv')
     
     # Create target variable for drop-off prediction
-    # Assuming 'Status Description' indicates drop-off (simplified for example)
     df['drop_off'] = df['Status Description'].apply(lambda x: 1 if x in ['Withdrawn', 'Rejected'] else 0)
     
     return df
@@ -96,7 +151,7 @@ if page == "Data Overview":
     
     with col1:
         st.subheader("Dataset Preview")
-        st.dataframe(df.head())
+        st.dataframe(df.head().style.set_properties(**{'background-color': '#1A1D24', 'color': '#FAFAFA'}))
     
     with col2:
         st.subheader("Dataset Summary")
@@ -105,16 +160,18 @@ if page == "Data Overview":
         
         # Basic stats
         st.markdown("**Basic Statistics**")
-        st.write(df.describe())
+        st.write(df.describe().style.set_properties(**{'background-color': '#1A1D24', 'color': '#FAFAFA'}))
     
     st.subheader("Missing Values Analysis")
     missing_data = df.isnull().sum().reset_index()
     missing_data.columns = ['Feature', 'Missing Count']
     missing_data['Missing %'] = (missing_data['Missing Count'] / len(df)) * 100
-    st.dataframe(missing_data.sort_values('Missing %', ascending=False))
+    st.dataframe(missing_data.sort_values('Missing %', ascending=False).style.set_properties(
+        **{'background-color': '#1A1D24', 'color': '#FAFAFA'}))
     
     st.subheader("Data Types")
-    st.write(df.dtypes.reset_index().rename(columns={'index': 'Feature', 0: 'Type'}))
+    st.write(df.dtypes.reset_index().rename(columns={'index': 'Feature', 0: 'Type'}).style.set_properties(
+        **{'background-color': '#1A1D24', 'color': '#FAFAFA'}))
 
 elif page == "Exploratory Analysis":
     st.header("🔍 Exploratory Data Analysis")
@@ -124,8 +181,9 @@ elif page == "Exploratory Analysis":
     monthly_signups = df.groupby(['Learner SignUp DateTime_year', 'Learner SignUp DateTime_month']).size()
     monthly_signups.index = [f"{int(y)}-{int(m):02}" for y, m in monthly_signups.index]
     monthly_signups = monthly_signups.sort_index()
-    sns.lineplot(data=monthly_signups, marker="o", ax=ax)
+    sns.lineplot(data=monthly_signups, marker="o", color='#2ecc71', ax=ax)  # Green color for line
     plt.xticks(rotation=45)
+    plt.grid(color='#333')
     st.pyplot(fig)
     
     st.subheader("Status Distribution")
@@ -135,41 +193,56 @@ elif page == "Exploratory Analysis":
         fig, ax = plt.subplots(figsize=(8, 8))
         counts = df["Status Description"].value_counts(dropna=False)
         donut_width = 0.4
+        colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6']  # Bright colors
         wedges, texts, autotexts = ax.pie(
             counts, labels=counts.index, autopct='%1.1f%%', 
             startangle=0, pctdistance=1-donut_width/2,
-            wedgeprops={'width': donut_width}
+            wedgeprops={'width': donut_width},
+            colors=colors
         )
-        centre_circle = plt.Circle((0, 0), donut_width, fc='white')
+        for text in texts:
+            text.set_color('white')
+        for autotext in autotexts:
+            autotext.set_color('white')
+        centre_circle = plt.Circle((0, 0), donut_width, fc='#1A1D24')
         ax.add_artist(centre_circle)
-        ax.set_title('Distribution of Status Description')
+        ax.set_title('Distribution of Status Description', color='white')
         st.pyplot(fig)
     
     with col2:
         fig, ax = plt.subplots(figsize=(8, 8))
         counts = df["Opportunity Category"].value_counts(dropna=False)
         donut_width = 0.4
+        colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6']  # Bright colors
         wedges, texts, autotexts = ax.pie(
             counts, labels=counts.index, autopct='%1.1f%%', 
             startangle=0, pctdistance=1-donut_width/2,
-            wedgeprops={'width': donut_width}
+            wedgeprops={'width': donut_width},
+            colors=colors
         )
-        centre_circle = plt.Circle((0, 0), donut_width, fc='white')
+        for text in texts:
+            text.set_color('white')
+        for autotext in autotexts:
+            autotext.set_color('white')
+        centre_circle = plt.Circle((0, 0), donut_width, fc='#1A1D24')
         ax.add_artist(centre_circle)
-        ax.set_title('Distribution of Opportunity Category')
+        ax.set_title('Distribution of Opportunity Category', color='white')
         st.pyplot(fig)
     
     st.subheader("Age Distribution")
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.boxplot(x='Age', data=df, orient='h', color='skyblue', ax=ax)
+    sns.boxplot(x='Age', data=df, orient='h', color='#3498db', ax=ax)  # Blue color
+    plt.grid(color='#333')
     st.pyplot(fig)
     
     st.subheader("Gender Distribution by Country (Top 5)")
     top_countries = df['Country'].value_counts().head(5).index
     gender_country_data = df[df['Country'].isin(top_countries)].groupby(['Country', 'Gender']).size().unstack().fillna(0)
     fig, ax = plt.subplots(figsize=(10, 6))
-    gender_country_data.plot(kind='bar', figsize=(10, 6), colormap='Pastel1', ax=ax)
-    plt.xticks(rotation=0)
+    gender_country_data.plot(kind='bar', figsize=(10, 6), colormap='viridis', ax=ax)
+    plt.xticks(rotation=0, color='white')
+    plt.yticks(color='white')
+    plt.grid(color='#333')
     st.pyplot(fig)
 
 elif page == "Predictive Modeling":
@@ -263,16 +336,19 @@ elif page == "Predictive Modeling":
                 st.metric("Accuracy", f"{accuracy:.2%}")
                 
                 st.markdown("**Classification Report**")
-                st.table(pd.DataFrame(report).transpose())
+                st.table(pd.DataFrame(report).transpose().style.set_properties(
+                    **{'background-color': '#1A1D24', 'color': '#FAFAFA'}))
             
             with col2:
                 # Confusion matrix
                 st.markdown("**Confusion Matrix**")
                 cm = confusion_matrix(y_test, y_pred)
                 fig, ax = plt.subplots()
-                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
-                ax.set_xlabel('Predicted')
-                ax.set_ylabel('Actual')
+                sns.heatmap(cm, annot=True, fmt='d', cmap='viridis', ax=ax)
+                ax.set_xlabel('Predicted', color='white')
+                ax.set_ylabel('Actual', color='white')
+                ax.set_xticklabels(ax.get_xticklabels(), color='white')
+                ax.set_yticklabels(ax.get_yticklabels(), color='white')
                 st.pyplot(fig)
             
             # ROC curve
@@ -282,14 +358,21 @@ elif page == "Predictive Modeling":
             
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', 
-                                   name=f'ROC curve (AUC = {roc_auc:.2f})'))
+                                   name=f'ROC curve (AUC = {roc_auc:.2f})',
+                                   line=dict(color='#2ecc71', width=3)))
             fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', 
-                                   line=dict(dash='dash'), name='Random'))
+                                   line=dict(dash='dash', color='#e74c3c'), name='Random'))
             fig.update_layout(
                 title='Receiver Operating Characteristic',
                 xaxis_title='False Positive Rate',
                 yaxis_title='True Positive Rate',
-                width=800, height=500
+                width=800, 
+                height=500,
+                plot_bgcolor='#1A1D24',
+                paper_bgcolor='#1A1D24',
+                font=dict(color='white'),
+                xaxis=dict(gridcolor='#333'),
+                yaxis=dict(gridcolor='#333')
             )
             st.plotly_chart(fig)
             
@@ -314,7 +397,16 @@ elif page == "Model Insights":
             importance = model.coef_[0]
             fig = px.bar(x=features, y=importance, 
                          labels={'x': 'Feature', 'y': 'Coefficient'},
-                         title='Feature Coefficients (Logistic Regression)')
+                         title='Feature Coefficients (Logistic Regression)',
+                         color=importance,
+                         color_continuous_scale='viridis')
+            fig.update_layout(
+                plot_bgcolor='#1A1D24',
+                paper_bgcolor='#1A1D24',
+                font=dict(color='white'),
+                xaxis=dict(gridcolor='#333'),
+                yaxis=dict(gridcolor='#333')
+            )
             st.plotly_chart(fig)
             
             st.markdown("""
@@ -328,7 +420,16 @@ elif page == "Model Insights":
             importance = model.feature_importances_
             fig = px.bar(x=features, y=importance, 
                          labels={'x': 'Feature', 'y': 'Importance'},
-                         title='Feature Importance (Tree-based Models)')
+                         title='Feature Importance (Tree-based Models)',
+                         color=importance,
+                         color_continuous_scale='viridis')
+            fig.update_layout(
+                plot_bgcolor='#1A1D24',
+                paper_bgcolor='#1A1D24',
+                font=dict(color='white'),
+                xaxis=dict(gridcolor='#333'),
+                yaxis=dict(gridcolor='#333')
+            )
             st.plotly_chart(fig)
             
             st.markdown("""
@@ -375,7 +476,7 @@ elif page == "Model Insights":
             
             st.metric("Probability of Drop-off", f"{proba:.1%}")
             
-            # Interpretation
+            # Interpretation with colored alerts
             if proba < 0.3:
                 st.success("Low risk of drop-off")
             elif proba < 0.7:
