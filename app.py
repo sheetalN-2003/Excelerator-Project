@@ -34,10 +34,11 @@ st.title("🚀 Student Retention Analytics Dashboard")
 # ==============================================
 # Data Loading & Preparation
 # ==============================================
-@st.cache_data(ttl=3600)
+DATA_URL = ""
+
+@st.cache_data
 def load_data():
-    try:
-        df = pd.read_csv("final_dataset.csv")
+    return pd.read_csv(DATA_URL)
         
         # Feature Engineering
         df['Signup_Date'] = pd.to_datetime(df['Signup_Date'])
