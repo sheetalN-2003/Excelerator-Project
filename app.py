@@ -1,4 +1,14 @@
+# ==============================================
+# Configuration - MUST BE FIRST STREAMLIT COMMAND
+# ==============================================
 import streamlit as st
+st.set_page_config(
+    page_title="Student Analytics Dashboard", 
+    layout="wide",
+    page_icon="🎓",
+    initial_sidebar_state="expanded"
+)
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,17 +37,7 @@ from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_extras.stylable_container import stylable_container
 from streamlit_extras.dataframe_explorer import dataframe_explorer
 
-# ==============================================
-# Configuration
-# ==============================================
-st.set_page_config(
-    page_title="Student Analytics Dashboard", 
-    layout="wide",
-    page_icon="🎓",
-    initial_sidebar_state="expanded"
-)
-
-# Initialize session state
+# Initialize session state at the module level
 if 'start_time' not in st.session_state:
     st.session_state.start_time = time.time()
 if 'interventions' not in st.session_state:
@@ -53,7 +53,6 @@ st_autorefresh(interval=5*60*1000, key="data_refresh")
 # ==============================================
 # Data Loading & Preparation
 # ==============================================
-@st.cache_data(ttl=3600, show_spinner="Loading data...")
 def load_data():
     """Load and process student data"""
     try:
@@ -87,6 +86,7 @@ def load_data():
         st.error(f"Critical error loading data: {e}")
         return pd.DataFrame()
 
+@st.cache_data(ttl=3600, show_spinner="Processing data...")
 def process_data(df):
     """Data processing and feature engineering"""
     try:
@@ -149,7 +149,7 @@ def train_retention_model(df):
         available_features = [f for f in features if f in df.columns]
         if not available_features:
             st.error("No valid features found for modeling")
-            return None, None, None
+            return None, None, None, None
             
         X = pd.get_dummies(df[available_features].dropna())
         y = df.dropna(subset=available_features)['At_Risk']
@@ -297,27 +297,36 @@ def show_model_metrics(report, roc_data=None):
 
 def real_time_metrics():
     """Display real-time metrics in sidebar"""
-    with st.sidebar:
-        st.markdown("### 📊 Real-time Metrics")
-        with stylable_container(
-            key="metrics_container",
-            css_styles="""
-            {
-                border: 1px solid rgba(49, 51, 63, 0.2);
-                border-radius: 0.5rem;
-                padding: calc(1em - 1px);
-                background-color: white;
-            }
-            """,
-        ):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Current Time", datetime.datetime.now().strftime('%H:%M:%S'))
-            with col2:
-                st.metric("Uptime", f"{(time.time() - st.session_state.start_time)/60:.1f} min")
-        
-        st.markdown("### 🔄 Data Refresh")
-        st.button("Refresh Data", help="Click to manually refresh all data")
+    try:
+        with st.sidebar:
+            st.markdown("### 📊 Real-time Metrics")
+            with stylable_container(
+                key="metrics_container",
+                css_styles="""
+                {
+                    border: 1px solid rgba(49, 51, 63, 0.2);
+                    border-radius: 0.5rem;
+                    padding: calc(1em - 1px);
+                    background-color: white;
+                }
+                """,
+            ):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Current Time", datetime.datetime.now().strftime('%H:%M:%S'))
+                with col2:
+                    if 'start_time' in st.session_state:
+                        st.metric("Uptime", f"{(time.time() - st.session_state.start_time)/60:.1f} min")
+                    else:
+                        st.metric("Uptime", "N/A")
+            
+            st.markdown("### 🔄 Data Refresh")
+            if st.button("Refresh Data", help="Click to manually refresh all data"):
+                st.cache_data.clear()
+                st.rerun()
+    except Exception as e:
+        # Silently fail to avoid thread errors
+        pass
 
 # ==============================================
 # Main Dashboard Layout
@@ -325,9 +334,8 @@ def real_time_metrics():
 def main():
     st.title("🎓 Student Retention Analytics Dashboard")
     
-    # Start clock thread
-    clock_thread = threading.Thread(target=real_time_metrics, daemon=True)
-    clock_thread.start()
+    # Initialize real-time metrics
+    real_time_metrics()
     
     # Load data
     with st.spinner("Loading data..."):
@@ -350,7 +358,7 @@ def main():
                 default=df['Course'].unique()[:2]
             )
         if 'Status Description' in df.columns:
-            filter_options['Status'] = st.multiselect(
+            filter_options['Status Description'] = st.multiselect(
                 "Select Status",
                 options=df['Status Description'].unique(),
                 default=['Active', 'Inactive'] if 'Active' in df['Status Description'].unique() else df['Status Description'].unique()[:2]
@@ -431,7 +439,7 @@ def main():
         # Retention analytics
         st.header("Student Retention Analysis")
         
-        if st.session_state.model_trained:
+        if st.session_state.get('model_trained', False):
             risk_df = predict_risk(
                 retention_df,
                 st.session_state.risk_model,
@@ -622,7 +630,7 @@ def main():
                     except Exception as e:
                         st.error(f"Error loading model: {e}")
         
-        if st.session_state.model_trained:
+        if st.session_state.get('model_trained', False):
             st.success("✅ Model loaded and ready for predictions")
             
             if st.button("View Model Details"):
