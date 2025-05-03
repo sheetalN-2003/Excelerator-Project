@@ -9,6 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Now import other dependencies
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,7 +36,6 @@ from streamlit_autorefresh import st_autorefresh
 from st_aggrid import AgGrid, GridOptionsBuilder
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_extras.stylable_container import stylable_container
-from streamlit_extras.dataframe_explorer import dataframe_explorer
 
 # Initialize session state at the module level
 if 'start_time' not in st.session_state:
@@ -88,50 +88,54 @@ def load_data():
 
 @st.cache_data(ttl=3600, show_spinner="Processing data...")
 def process_data(df):
-    """Data processing and feature engineering"""
+    """Data processing and feature engineering with proper datetime handling"""
     try:
-        # Convert date columns
-        date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
-        for col in date_cols:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
+        # Define expected datetime formats to try
+        datetime_formats = [
+            '%Y-%m-%d %H:%M:%S',  # ISO format with time
+            '%Y-%m-%d',            # ISO format without time
+            '%m/%d/%Y %H:%M:%S',   # US format with time
+            '%m/%d/%Y',            # US format without time
+            '%d/%m/%Y %H:%M:%S',   # European format with time
+            '%d/%m/%Y'             # European format without time
+        ]
         
-        # Calculate features
+        # Convert date columns with explicit formats
+        date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        
+        for col in date_cols:
+            # Try parsing with each format until one works
+            for fmt in datetime_formats:
+                try:
+                    df[col] = pd.to_datetime(df[col], format=fmt, errors='raise')
+                    break
+                except ValueError:
+                    continue
+            else:
+                # If none of the formats worked, fall back to flexible parsing
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+                
+                # Log a warning if we had to fall back
+                if df[col].isna().any():
+                    st.warning(f"Some values in column '{col}' couldn't be parsed as dates")
+        
+        # Calculate features only if we have the required date columns
         if 'Signup_Date' in df.columns and 'Last_Activity' in df.columns:
             df['Days_Inactive'] = (pd.to_datetime('today') - df['Last_Activity']).dt.days
-            df['Engagement_Score'] = np.log1p(df.get('Login_Count', 1)) / (df['Days_Inactive'] + 1)
+            login_counts = df.get('Login_Count', 1)  # Default to 1 if column doesn't exist
+            df['Engagement_Score'] = np.log1p(login_counts) / (df['Days_Inactive'] + 1)
         
         # Handle missing values
         numeric_cols = df.select_dtypes(include=np.number).columns
         df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
         
+        # Convert object columns to string to avoid mixed-type warnings
+        for col in df.select_dtypes(include='object').columns:
+            df[col] = df[col].astype(str)
+        
         return df
     except Exception as e:
         st.error(f"Data processing error: {e}")
-        return df
-
-def prepare_retention_data(df):
-    """Prepare data for retention prediction"""
-    try:
-        # Create target variable
-        status_mapping = {
-            'Active': 0,
-            'Inactive': 1,
-            'Dropped': 1,
-            'Abandoned': 1
-        }
-        
-        if 'Status Description' in df.columns:
-            df['At_Risk'] = df['Status Description'].map(status_mapping).fillna(0)
-        
-        # Feature engineering
-        if 'Signup_Date' in df.columns:
-            df['Activity_Gap'] = (df.get('Last_Activity', pd.to_datetime('today')) - df['Signup_Date']).dt.days
-            df['Weekday_Signup'] = df['Signup_Date'].dt.dayofweek
-            df['Month_Signup'] = df['Signup_Date'].dt.month
-        
-        return df
-    except Exception as e:
-        st.error(f"Data prep error: {e}")
         return df
 
 # ==============================================
