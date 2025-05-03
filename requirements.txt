@@ -3,12 +3,10 @@ pandas
 numpy
 scikit-learn
 seaborn
-imbalanced-learn
+matplotlib
 plotly
-joblib
 openai
-streamlit-autorefresh
-streamlit-aggrid
-streamlit-extras
-imbalanced-learn
-python-dotenv
+pyarrow
+python-dateutil
+pytz
+tqdm
