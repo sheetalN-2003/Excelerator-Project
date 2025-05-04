@@ -187,7 +187,7 @@ def real_time_clock():
 # OpenAI insights generator with enhanced error handling
 def generate_ai_insights(data, prompt):
     try:
-        if not openai.api_key or openai.api_key == "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":
+        if not openai.api_key or openai.api_key == "you_api_key_here":
             return "⚠️ OpenAI API key not configured. Please set your API key to enable AI insights."
             
         if not data or (isinstance(data, dict) and not data):
