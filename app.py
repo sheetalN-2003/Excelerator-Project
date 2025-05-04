@@ -952,8 +952,8 @@ try:
                             st.plotly_chart(fig, use_container_width=True)
                     except Exception as e:
                         st.error(f"Error in scenario analysis: {str(e)}")
-            else:
-                st.warning("Please train a model first in the Predictive Modeling section")
+        else:
+            st.warning("Please train a model first in the Predictive Modeling section")
 
 except Exception as e:
     st.error(f"An unexpected error occurred: {str(e)}")
