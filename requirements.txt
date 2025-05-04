@@ -5,7 +5,7 @@ scikit-learn
 seaborn
 matplotlib
 plotly
-openai
+openai==0.28
 pyarrow
 python-dateutil
 pytz
