@@ -17,5 +17,5 @@ A Streamlit web application that provides real-time student analytics, predictiv
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/sheetalN-2003
+   git clone https://github.com/sheetalN-2003/Excelerator-Project
    cd student-analytics-dashboard
