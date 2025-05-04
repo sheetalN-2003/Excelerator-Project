@@ -845,7 +845,9 @@ try:
                     st.error(f"Error generating insights: {str(e)}")
         
         st.subheader("Predictive Scenario Analysis")
-        if 'model' in st.session_state:
+        if 'model' not in st.session_state:
+            st.warning("Please train a model first in the Predictive Modeling section")
+        else:
             st.markdown("Test different scenarios to understand drop-off risks:")
             
             try:
@@ -952,6 +954,8 @@ try:
                             st.plotly_chart(fig, use_container_width=True)
                     except Exception as e:
                         st.error(f"Error in scenario analysis: {str(e)}")
+            except Exception as e:
+                st.error(f"Error setting up scenario inputs: {str(e)}")
         else:
             st.warning("Please train a model first in the Predictive Modeling section")
 
