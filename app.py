@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import math
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
@@ -19,6 +18,7 @@ import pytz
 import pyarrow as pa
 from dateutil.relativedelta import relativedelta
 import textwrap
+from lifelines import KaplanMeierFitter
 
 # Set page config with professional dark theme
 st.set_page_config(
@@ -128,7 +128,7 @@ sns.set_style("darkgrid", {
 @st.cache_data
 def load_data():
     try:
-        # Create sample data if file not found
+        # Create sample data
         num_records = 1000
         countries = ['India', 'USA', 'UK', 'Canada', 'Australia', 'Germany', 'France']
         categories = ['Undergraduate', 'Graduate', 'Professional', 'Vocational', 'Certificate']
@@ -143,6 +143,8 @@ def load_data():
             'Learner SignUp DateTime_year': np.random.choice([2022, 2023], num_records),
             'Learner SignUp DateTime_month': np.random.randint(1, 13, num_records),
             'Learner SignUp DateTime_day': np.random.randint(1, 29, num_records),
+            'Engagement_Score': np.random.uniform(0, 100, num_records),
+            'Course_Progress': np.random.uniform(0, 100, num_records)
         }
         
         df = pd.DataFrame(data)
@@ -150,6 +152,22 @@ def load_data():
         # Create target variable
         df['drop_off'] = df['Status Description'].apply(
             lambda x: 1 if str(x) in ['Withdrawn', 'Rejected'] else 0
+        )
+        
+        # Create datetime
+        df['Signup_DateTime'] = pd.to_datetime(
+            df['Learner SignUp DateTime_year'].astype(str) + '-' +
+            df['Learner SignUp DateTime_month'].astype(str).str.zfill(2) + '-' +
+            df['Learner SignUp DateTime_day'].astype(str).str.zfill(2)
+        )
+        
+        # Add churn duration
+        current_date = pd.to_datetime('2025-05-04')
+        df['Days_Since_Signup'] = (current_date - df['Signup_DateTime']).dt.days
+        df['Churn_Event'] = df['drop_off']
+        df['Churn_Duration'] = df.apply(
+            lambda x: np.random.randint(30, x['Days_Since_Signup'] + 1) if x['Churn_Event'] == 1 
+            else x['Days_Since_Signup'], axis=1
         )
         
         return df
@@ -160,18 +178,7 @@ def load_data():
 
 df = load_data()
 
-# Fix datetime conversion
-try:
-    df['Signup_DateTime'] = pd.to_datetime(
-        df['Learner SignUp DateTime_year'].astype(int).astype(str) + '-' +
-        df['Learner SignUp DateTime_month'].astype(int).astype(str).str.zfill(2) + '-' +
-        df['Learner SignUp DateTime_day'].astype(int).astype(str).str.zfill(2)
-    )
-except Exception as e:
-    st.error(f"Error converting datetime columns: {str(e)}")
-    df['Signup_DateTime'] = pd.to_datetime('today')  # Fallback
-
-# Real-time clock component with India timezone
+# Real-time clock component
 def real_time_clock():
     tz = pytz.timezone('Asia/Kolkata')
     now = datetime.now(tz)
@@ -187,7 +194,7 @@ def real_time_clock():
         unsafe_allow_html=True
     )
 
-# Local analysis function to replace OpenAI
+# Local analysis function
 def generate_local_insights(data, analysis_type):
     try:
         if analysis_type == "General Overview":
@@ -198,7 +205,6 @@ def generate_local_insights(data, analysis_type):
             4. **Completion Rates**: Approximately 60% of students maintain active status, while 20% successfully complete their programs.
             5. **Drop-off Patterns**: Drop-off rates are highest in the first 3 months after enrollment.
             """
-            
         elif analysis_type == "Drop-off Risk Factors":
             insights = """
             1. **Age Factor**: Students under 20 and over 40 show higher drop-off rates compared to other age groups.
@@ -207,7 +213,6 @@ def generate_local_insights(data, analysis_type):
             4. **Geographical Trends**: Students from certain regions show higher drop-off tendencies.
             5. **Engagement**: Lack of interaction in the first month correlates with higher drop-off likelihood.
             """
-            
         elif analysis_type == "Retention Opportunities":
             insights = """
             1. **Early Intervention**: Implement a 30-day check-in program for high-risk students.
@@ -216,7 +221,6 @@ def generate_local_insights(data, analysis_type):
             4. **Financial Support**: Offer flexible payment options for vocational program students.
             5. **Community Building**: Create regional student groups to enhance peer support.
             """
-            
         elif analysis_type == "Seasonal Patterns":
             insights = """
             1. **Enrollment Peaks**: Highest enrollment occurs in January and September.
@@ -225,7 +229,6 @@ def generate_local_insights(data, analysis_type):
             4. **Holiday Impact**: November-December shows higher drop-off rates due to holidays.
             5. **New Year Effect**: January enrollments have higher completion rates.
             """
-            
         else:  # Custom Analysis
             insights = """
             Based on the custom analysis request, here are the key findings:
@@ -236,8 +239,7 @@ def generate_local_insights(data, analysis_type):
             4. Evening learners (6pm-12am) have slightly better outcomes than daytime learners.
             5. Implementing a structured onboarding process could improve retention by up to 20%.
             """
-            
-        # Format the insights with proper wrapping
+        
         wrapped_insights = "<div style='font-family: Arial, sans-serif; line-height: 1.6;'>"
         for paragraph in insights.split('\n\n'):
             wrapped_paragraph = textwrap.fill(paragraph, width=100)
@@ -249,7 +251,7 @@ def generate_local_insights(data, analysis_type):
     except Exception as e:
         return f"<div style='color: #BF616A;'>Error generating insights: {str(e)}</div>"
 
-# Sidebar with proper labels and error handling
+# Sidebar
 def create_sidebar():
     st.sidebar.title("Dashboard Controls")
     real_time_clock()
@@ -258,7 +260,7 @@ def create_sidebar():
     try:
         page = st.sidebar.radio(
             "Select Page",
-            options=["Data Overview", "Exploratory Analysis", "Predictive Modeling", "AI Insights"],
+            options=["Data Overview", "Exploratory Analysis", "Predictive Modeling", "AI Insights", "Churn Analysis"],
             label_visibility="visible"
         )
         return page
@@ -268,14 +270,55 @@ def create_sidebar():
 
 page = create_sidebar()
 
-# Main content with error boundaries
+# Churn Analysis Features Explanation
+def explain_churn_features():
+    explanation = """
+    ### Churn Analysis Features and Their Significance
+
+    The following features are used in the churn analysis to predict and understand student dropout behavior:
+
+    1. **Age**:
+       - **Description**: The student's age at the time of signup.
+       - **Significance**: Younger students (<20) may have higher churn due to uncertainty in career paths, while older students (>40) might face time constraints or competing responsibilities.
+
+    2. **Gender**:
+       - **Description**: The student's gender (Male, Female, Other).
+       - **Significance**: Gender can influence engagement patterns due to social or cultural factors, potentially affecting churn rates in certain programs.
+
+    3. **Country**:
+       - **Description**: The student's country of origin.
+       - **Significance**: Regional differences in education access, economic conditions, or cultural attitudes toward online learning can impact retention.
+
+    4. **Opportunity Category**:
+       - **Description**: The type of course (Undergraduate, Graduate, Professional, Vocational, Certificate).
+       - **Significance**: Different program types have varying commitment levels and difficulty, affecting dropout likelihood (e.g., Vocational programs may have higher churn due to shorter duration).
+
+    5. **Signup_Season**:
+       - **Description**: The season of signup (Winter, Spring, Summer, Fall).
+       - **Significance**: Seasonal patterns affect engagement; summer signups may have higher churn due to competing activities or holidays.
+
+    6. **Engagement_Score**:
+       - **Description**: A synthetic score representing student interaction with course materials (0-100).
+       - **Significance**: Low engagement scores strongly correlate with higher churn risk, as disengaged students are less likely to complete courses.
+
+    7. **Course_Progress**:
+       - **Description**: Percentage of course completion at the time of analysis (0-100).
+       - **Significance**: Students with low progress are more likely to drop out, indicating early intervention needs.
+
+    8. **Days_Since_Signup**:
+       - **Description**: Number of days since the student signed up.
+       - **Significance**: Longer time since signup without completion increases churn risk, especially if engagement drops.
+    """
+    return explanation
+
+# Main content
 try:
     st.title("🎓 AI-Powered Student Analytics Dashboard")
     st.markdown("""
     *Real-time monitoring and predictive analytics for student engagement and retention*
     """)
 
-    # Real-time data updater with proper caching
+    # Real-time data updater
     @st.cache_data(ttl=60)
     def get_realtime_metrics():
         try:
@@ -295,7 +338,6 @@ try:
     if page == "Data Overview":
         st.header("📊 Data Overview")
         
-        # Check if data is loaded
         if df.empty:
             st.warning("No data available - please check your data source")
             st.stop()
@@ -321,7 +363,6 @@ try:
             st.subheader("Recent Activity Timeline")
             
             try:
-                # Generate recent activity data
                 now = datetime.now(pytz.timezone('Asia/Kolkata'))
                 timeline_data = pd.DataFrame({
                     "timestamp": [now - timedelta(minutes=x*15) for x in range(10)],
@@ -428,7 +469,6 @@ try:
             st.warning("No data available - please check your data source")
             st.stop()
         
-        # Time series analysis with interactive controls
         st.subheader("Temporal Analysis")
         
         tab1, tab2, tab3 = st.tabs(["Signup Trends", "Status Changes", "Demographics"])
@@ -446,7 +486,6 @@ try:
                 with col2:
                     show_forecast = st.checkbox("Show 3-Month Forecast", value=True)
                 
-                # Prepare time series data
                 if time_resolution == "Daily":
                     ts_data = df.set_index('Signup_DateTime').resample('D').size()
                 elif time_resolution == "Weekly":
@@ -465,7 +504,6 @@ try:
                 ))
                 
                 if show_forecast:
-                    # Simple forecast (in a real app, use proper time series forecasting)
                     last_date = ts_data.index[-1]
                     forecast_dates = pd.date_range(
                         start=last_date + pd.DateOffset(months=1),
@@ -498,7 +536,6 @@ try:
         
         with tab2:
             try:
-                # Status transition analysis
                 status_flow = df.groupby(['Status Description', 'Opportunity Category']).size().unstack().fillna(0)
                 
                 fig = px.bar(
@@ -521,7 +558,6 @@ try:
         
         with tab3:
             try:
-                # Interactive demographic analysis
                 col1, col2 = st.columns(2)
                 with col1:
                     demographic_var = st.selectbox(
@@ -589,34 +625,28 @@ try:
         Train and evaluate machine learning models to predict student drop-offs with explainable AI.
         """)
         
-        # Feature selection
         st.subheader("Feature Engineering")
         
-        # Preprocess data for modeling with error handling
         @st.cache_data
         def preprocess_data(df):
             try:
-                # Select features and target
                 features = ['Age', 'Gender', 'Country', 'Opportunity Category', 
-                           'Learner SignUp DateTime_month', 'Learner SignUp DateTime_year']
+                           'Learner SignUp DateTime_month', 'Learner SignUp DateTime_year',
+                           'Engagement_Score', 'Course_Progress']
                 target = 'drop_off'
                 
-                # Filter data
                 model_df = df[features + [target]].copy()
                 
-                # Feature engineering
                 model_df['Signup_Season'] = model_df['Learner SignUp DateTime_month'].apply(
                     lambda m: 'Winter' if m in [12,1,2] else 
                              'Spring' if m in [3,4,5] else 
                              'Summer' if m in [6,7,8] else 'Fall'
                 )
                 
-                # Encode categorical variables
                 le = LabelEncoder()
                 for col in ['Gender', 'Country', 'Opportunity Category', 'Signup_Season']:
                     model_df[col] = le.fit_transform(model_df[col].astype(str))
                     
-                # Handle missing values
                 model_df.fillna(model_df.median(), inplace=True)
                 
                 return model_df, features + ['Signup_Season'], target
@@ -630,7 +660,6 @@ try:
             st.error("Failed to preprocess data for modeling")
             st.stop()
         
-        # Interactive feature selection
         with st.expander("Feature Selection and Engineering", expanded=False):
             try:
                 selected_features = st.multiselect(
@@ -647,7 +676,6 @@ try:
                 st.error(f"Error in feature selection: {str(e)}")
                 st.stop()
         
-        # Model selection and configuration
         st.subheader("Model Configuration")
         
         try:
@@ -691,7 +719,6 @@ try:
             st.error(f"Error in model configuration: {str(e)}")
             st.stop()
         
-        # Train/test split
         try:
             X = model_df[selected_features]
             y = model_df[target]
@@ -702,7 +729,6 @@ try:
             st.error(f"Error splitting data: {str(e)}")
             st.stop()
         
-        # Train model
         if st.button("Train and Evaluate Model", type="primary"):
             st.subheader("Model Performance")
             
@@ -721,11 +747,9 @@ try:
                     y_pred = model.predict(X_test)
                     y_prob = model.predict_proba(X_test)[:, 1]
                     
-                    # Metrics
                     accuracy = accuracy_score(y_test, y_pred)
                     report = classification_report(y_test, y_pred, output_dict=True)
                     
-                    # Display results in tabs
                     tab1, tab2, tab3, tab4 = st.tabs(["Metrics", "Confusion Matrix", "Feature Importance", "Predictions"])
                     
                     with tab1:
@@ -789,7 +813,6 @@ try:
                         })
                         st.dataframe(sample_results)
                     
-                    # Save model to session state
                     st.session_state.model = model
                     st.session_state.features = selected_features
                     st.success("Model training completed successfully!")
@@ -808,7 +831,6 @@ try:
         Leverage AI to generate actionable insights from your data.
         """)
         
-        # Data summary for analysis
         try:
             data_summary = {
                 "total_students": len(df),
@@ -905,7 +927,6 @@ try:
                 
                 if st.button("Calculate Drop-off Risk", type="primary"):
                     try:
-                        # Create input dataframe
                         input_data = pd.DataFrame({
                             'Age': [age],
                             'Gender': [gender],
@@ -913,21 +934,22 @@ try:
                             'Opportunity Category': [category],
                             'Learner SignUp DateTime_month': [signup_month],
                             'Learner SignUp DateTime_year': [2023],
+                            'Engagement_Score': [33.3 if engagement_level == "Low" else 66.6 if engagement_level == "Medium" else 100],
+                            'Course_Progress': [np.random.uniform(0, 50) if engagement_level == "Low" else 
+                                              np.random.uniform(30, 80) if engagement_level == "Medium" else 
+                                              np.random.uniform(60, 100)],
                             'Signup_Season': ['Winter' if signup_month in [12,1,2] else 
                                              'Spring' if signup_month in [3,4,5] else 
                                              'Summer' if signup_month in [6,7,8] else 'Fall']
                         })
                         
-                        # Encode categorical variables
                         le = LabelEncoder()
                         for col in ['Gender', 'Country', 'Opportunity Category', 'Signup_Season']:
                             input_data[col] = le.fit_transform(input_data[col].astype(str))
                         
-                        # Predict
                         model = st.session_state.model
                         proba = model.predict_proba(input_data[st.session_state.features])[0][1]
                         
-                        # Display results with visualization
                         col1, col2 = st.columns([1, 2])
                         with col1:
                             st.metric("Drop-off Probability", f"{proba:.1%}")
@@ -974,11 +996,191 @@ try:
             except Exception as e:
                 st.error(f"Error setting up scenario inputs: {str(e)}")
 
+    elif page == "Churn Analysis":
+        st.header("📉 Advanced Churn Analysis")
+        if df.empty:
+            st.warning("No data available - please check your data source")
+            st.stop()
+
+        with st.expander("Churn Analysis Features Explanation", expanded=False):
+            st.markdown(explain_churn_features())
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            churn_rate = df['drop_off'].mean()
+            st.metric("Current Churn Rate", f"{churn_rate:.1%}")
+        with col2:
+            total_churned = int(df['drop_off'].sum())
+            st.metric("Total Churned Students", f"{total_churned:,}")
+        with col3:
+            active_students = int((df['drop_off'] == 0).sum())
+            st.metric("Active Students", f"{active_students:,}")
+
+        st.markdown("---")
+
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "Churn Trend", "Survival Analysis", 
+            "Demographic Patterns", "Risk Factors"
+        ])
+
+        with tab1:
+            st.subheader("Churn Rate Over Time")
+            try:
+                freq = st.selectbox(
+                    "Time Resolution", 
+                    ["Monthly", "Quarterly"], 
+                    index=0, 
+                    key="churn_trend_freq"
+                )
+                freq_code = "M" if freq == "Monthly" else "Q"
+                churn_ts = (
+                    df.set_index('Signup_DateTime')
+                    .groupby(pd.Grouper(freq=freq_code))['drop_off']
+                    .mean()
+                    .reset_index()
+                )
+                fig = px.line(
+                    churn_ts,
+                    x='Signup_DateTime',
+                    y='drop_off',
+                    markers=True,
+                    line_shape='spline',
+                    title=f'{freq} Churn Rate Trend',
+                    labels={'drop_off': 'Churn Rate', 'Signup_DateTime': 'Date'}
+                )
+                fig.update_layout(
+                    plot_bgcolor='#2E3440',
+                    paper_bgcolor='#2E3440',
+                    font=dict(color='white'),
+                    xaxis=dict(gridcolor='#3B4252'),
+                    yaxis=dict(gridcolor='#3B4252', tickformat=".0%"),
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error generating churn trend: {str(e)}")
+
+        with tab2:
+            st.subheader("Survival Analysis")
+            st.markdown("""
+            Survival analysis estimates the time until an event occurs, such as student churn. 
+            The survival curve shows the probability of students not churning over time.
+            """)
+            
+            category = st.selectbox(
+                "Select Category",
+                df['Opportunity Category'].unique(),
+                key="survival_category"
+            )
+            
+            try:
+                kmf = KaplanMeierFitter()
+                mask = df['Opportunity Category'] == category
+                kmf.fit(df[mask]['Churn_Duration'], event_observed=df[mask]['Churn_Event'])
+                
+                survival_df = pd.DataFrame({
+                    'Time': kmf.survival_function_.index,
+                    'Survival Probability': kmf.survival_function_[kmf.survival_function_.columns[0]]
+                })
+                
+                fig = px.line(
+                    survival_df,
+                    x='Time',
+                    y='Survival Probability',
+                    title=f'Survival Curve for {category}',
+                    labels={'Time': 'Days Since Signup', 'Survival Probability': 'Probability'}
+                )
+                fig.update_layout(
+                    plot_bgcolor='#2E3440',
+                    paper_bgcolor='#2E3440',
+                    font=dict(color='white'),
+                    xaxis=dict(gridcolor='#3B4252'),
+                    yaxis=dict(gridcolor='#3B4252'),
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Error generating survival analysis: {str(e)}")
+
+        with tab3:
+            st.subheader("Demographic Churn Patterns")
+            try:
+                demo_var = st.selectbox(
+                    "Analyze by", 
+                    ['Age', 'Gender', 'Country', 'Opportunity Category'], 
+                    index=0,
+                    key="demo_churn_var"
+                )
+                if demo_var == 'Age':
+                    df['Age Group'] = pd.cut(
+                        df['Age'],
+                        bins=[0, 20, 25, 30, 40, 100],
+                        labels=['<20', '20-25', '25-30', '30-40', '40+']
+                    )
+                    group_var = 'Age Group'
+                else:
+                    group_var = demo_var
+                demo_churn = df.groupby(group_var)['drop_off'].mean().reset_index()
+                fig = px.bar(
+                    demo_churn,
+                    x=group_var,
+                    y='drop_off',
+                    color='drop_off',
+                    color_continuous_scale='magma',
+                    title=f'Churn Rate by {demo_var}',
+                    labels={'drop_off': 'Churn Rate'}
+                )
+                fig.update_layout(
+                    plot_bgcolor='#2E3440',
+                    paper_bgcolor='#2E3440',
+                    font=dict(color='white'),
+                    xaxis=dict(gridcolor='#3B4252'),
+                    yaxis=dict(gridcolor='#3B4252', tickformat=".0%"),
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error generating demographic churn: {str(e)}")
+
+        with tab4:
+            st.subheader("Churn Risk Factors")
+            try:
+                if 'model' in st.session_state and hasattr(st.session_state.model, 'feature_importances_'):
+                    importance = st.session_state.model.feature_importances_
+                    features = st.session_state.features
+                    risk_factors = pd.DataFrame({
+                        'Feature': features,
+                        'Importance': importance
+                    }).sort_values('Importance', ascending=True)
+                    fig = px.bar(
+                        risk_factors,
+                        x='Importance',
+                        y='Feature',
+                        orientation='h',
+                        color='Importance',
+                        color_continuous_scale='viridis',
+                        title='Feature Impact on Churn Risk'
+                    )
+                    fig.update_layout(
+                        plot_bgcolor='#2E3440',
+                        paper_bgcolor='#2E3440',
+                        font=dict(color='white'),
+                        xaxis=dict(gridcolor='#3B4252'),
+                        yaxis=dict(gridcolor='#3B4252'),
+                        height=400
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Train a model in the Predictive Modeling section to view risk factors.")
+            except Exception as e:
+                st.error(f"Error generating risk factors: {str(e)}")
+
 except Exception as e:
     st.error(f"An unexpected error occurred: {str(e)}")
     st.stop()
 
-# Footer with real-time update
+# Footer
 st.markdown("---")
 footer_col1, footer_col2 = st.columns(2)
 with footer_col1:
@@ -989,17 +1191,3 @@ with footer_col1:
 with footer_col2:
     last_updated = datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%Y-%m-%d %H:%M:%S")
     st.markdown(f"*Last updated: {last_updated} IST*")
-
-# JavaScript for real-time clock update
-st.markdown("""
-<script>
-function updateClock() {
-    const now = new Date();
-    const clockElement = document.querySelector('.real-time-clock');
-    if (clockElement) {
-        clockElement.textContent = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-    }
-}
-setInterval(updateClock, 1000);
-</script>
-""", unsafe_allow_html=True)
