@@ -28,6 +28,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
 # Initialize OpenAI (replace with your API key)
 if 'OPENAI_API_KEY' in st.secrets:
     openai.api_key = st.secrets["OPENAI_API_KEY"]
