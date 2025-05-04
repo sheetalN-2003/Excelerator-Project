@@ -28,13 +28,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-
 # Initialize OpenAI (replace with your API key)
 if 'OPENAI_API_KEY' in st.secrets:
     openai.api_key = st.secrets["OPENAI_API_KEY"]
 else:
-    openai.api_key = "your-api-key-here"  # Replace with your actual key
+    openai.api_key = "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"  # Replace with your actual key
 
 # Custom CSS for professional dark theme
 st.markdown("""
