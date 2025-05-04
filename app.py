@@ -185,7 +185,7 @@ def real_time_clock():
     )
 
 # OpenAI insights generator with enhanced error handling
-def generate_ai_insights(data, prompt):
+    def generate_ai_insights(data, prompt):
     try:
         if not openai.api_key or openai.api_key == "your-api-key-here":
             return "⚠️ OpenAI API key not configured. Please set your API key to enable AI insights."
@@ -198,20 +198,21 @@ def generate_ai_insights(data, prompt):
             messages=[
                 {
                     "role": "system", 
-                    "content": "You are a data science assistant that provides concise, professional insights about educational data. Respond in markdown format with bullet points."
+                    "content": "You are a data science assistant..."
                 },
                 {
                     "role": "user", 
-                    "content": f"Analyze this data and provide 3-5 key insights: {str(data)}. Focus on: {prompt}. Keep each insight under 2 sentences."
+                    "content": f"Analyze this data...{prompt}"
                 }
             ],
             temperature=0.7,
             max_tokens=256
         )
         return response.choices[0].message.content
-    except openai.error.AuthenticationError:
+        
+    except openai.AuthenticationError:
         return "🔒 Authentication error: Please check your OpenAI API key"
-    except openai.error.RateLimitError:
+    except openai.RateLimitError:
         return "⏳ API rate limit exceeded: Please wait before making more requests"
     except Exception as e:
         return f"⚠️ Error generating insights: {str(e)}"
