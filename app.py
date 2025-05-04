@@ -956,8 +956,6 @@ try:
                         st.error(f"Error in scenario analysis: {str(e)}")
             except Exception as e:
                 st.error(f"Error setting up scenario inputs: {str(e)}")
-        else:
-            st.warning("Please train a model first in the Predictive Modeling section")
 
 except Exception as e:
     st.error(f"An unexpected error occurred: {str(e)}")
