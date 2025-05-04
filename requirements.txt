@@ -1,12 +1,10 @@
 streamlit
 pandas
 numpy
-scikit-learn
 seaborn
 matplotlib
+scikit-learn
 plotly
-openai
-pyarrow
 python-dateutil
 pytz
-tqdm
+pyarrow
