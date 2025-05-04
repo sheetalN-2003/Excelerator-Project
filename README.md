@@ -1,6 +1,14 @@
 # Excelerator-Project
 # AI-Powered Student Analytics Dashboard
 
+## 🌐 Live Demo
+
+Experience the dashboard right now:  
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://excelerator-project-p9ql4spdtvhuuvmlfdsgef.streamlit.app/)  
+
+*No installation required - runs directly in your browser*
+
 ## 📌 Overview
 
 A Streamlit web application that provides real-time student analytics, predictive modeling, and AI-generated insights for educational institutions.
