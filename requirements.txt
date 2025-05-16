@@ -8,3 +8,4 @@ plotly
 python-dateutil
 pytz
 pyarrow
+lifelines
