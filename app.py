@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -200,43 +199,63 @@ def generate_local_insights(data, analysis_type):
         if analysis_type == "General Overview":
             insights = """
             1. **Student Demographics**: The majority of students are aged between 22-35 years old, with a balanced gender distribution.
+            
             2. **Geographical Distribution**: About 40% of students are from India, followed by 20% from the USA.
+            
             3. **Program Popularity**: Professional and Graduate programs show the highest enrollment rates.
+            
             4. **Completion Rates**: Approximately 60% of students maintain active status, while 20% successfully complete their programs.
+            
             5. **Drop-off Patterns**: Drop-off rates are highest in the first 3 months after enrollment.
             """
         elif analysis_type == "Drop-off Risk Factors":
             insights = """
-            1. **Age Factor**: Students under 20 and over 40 show higher drop-off rates compared to other age groups.
-            2. **Program Type**: Vocational programs have a 15% higher drop-off rate compared to professional programs.
-            3. **Seasonal Impact**: Enrollments in summer months (June-August) show 10% higher drop-off rates.
-            4. **Geographical Trends**: Students from certain regions show higher drop-off tendencies.
-            5. **Engagement**: Lack of interaction in the first month correlates with higher drop-off likelihood.
+            1. "Age Factor": Students under 20 and over 40 show higher drop-off rates compared to other age groups.
+            
+            2. "Program Type": Vocational programs have a 15% higher drop-off rate compared to professional programs.
+            
+            3. "Seasonal Impact": Enrollments in summer months (June-August) show 10% higher drop-off rates.
+            
+            4. "Geographical Trends": Students from certain regions show higher drop-off tendencies.
+            
+            5. "Engagement": Lack of interaction in the first month correlates with higher drop-off likelihood.
             """
         elif analysis_type == "Retention Opportunities":
             insights = """
-            1. **Early Intervention**: Implement a 30-day check-in program for high-risk students.
-            2. **Mentorship**: Pair new students with successful alumni from similar backgrounds.
-            3. **Curriculum Adjustments**: Add more interactive elements in the first month.
-            4. **Financial Support**: Offer flexible payment options for vocational program students.
-            5. **Community Building**: Create regional student groups to enhance peer support.
+            1. "Early Intervention": Implement a 30-day check-in program for high-risk students.
+            
+            2. "Mentorship": Pair new students with successful alumni from similar backgrounds.
+            
+            3. "Curriculum Adjustments": Add more interactive elements in the first month.
+            
+            4. "Financial Support": Offer flexible payment options for vocational program students.
+            
+            5. "Community Building": Create regional student groups to enhance peer support.
             """
         elif analysis_type == "Seasonal Patterns":
             insights = """
-            1. **Enrollment Peaks**: Highest enrollment occurs in January and September.
-            2. **Completion Cycles**: Most completions occur 6-9 months after enrollment.
-            3. **Summer Slump**: Engagement drops by 15% during summer months.
-            4. **Holiday Impact**: November-December shows higher drop-off rates due to holidays.
-            5. **New Year Effect**: January enrollments have higher completion rates.
+            1. "Enrollment Peaks": Highest enrollment occurs in January and September.
+            
+            2. "Completion Cycles": Most completions occur 6-9 months after enrollment.
+            
+            3. "Summer Slump": Engagement drops by 15% during summer months.
+            
+            4. "Holiday Impact": November-December shows higher drop-off rates due to holidays.
+            
+            5. "New Year Effect": January enrollments have higher completion rates.
             """
         else:  # Custom Analysis
             insights = """
             Based on the custom analysis request, here are the key findings:
             
             1. The data shows clear patterns correlating engagement levels with success rates.
+            
             2. Students who interact with at least 3 learning resources in the first week have 25% higher completion rates.
+            
             3. Mobile app users show 15% higher retention than web-only users.
+            
             4. Evening learners (6pm-12am) have slightly better outcomes than daytime learners.
+            
             5. Implementing a structured onboarding process could improve retention by up to 20%.
             """
         
